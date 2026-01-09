@@ -177,6 +177,7 @@ watch(
     <div class=":uno: flex flex-wrap items-center gap-3">
       <SearchInput v-model="keyword" />
       <FilterDropdown
+        popper-class="[&_.v-popper\_\_inner]:max-h-[50vh]"
         v-if="!keyword"
         v-model="selectedTopicId"
         label="类别"

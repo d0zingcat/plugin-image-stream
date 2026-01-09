@@ -255,7 +255,12 @@ watch(
     <div class=":uno: flex flex-wrap items-center gap-3">
       <SearchInput v-model="keyword" />
       <FilterDropdown v-model="selectedImageType" label="图像类型" :items="IMAGE_TYPES" />
-      <FilterDropdown v-model="selectedCategory" label="类别" :items="CATEGORIES" />
+      <FilterDropdown
+        popper-class="[&_.v-popper\_\_inner]:max-h-[50vh]"
+        v-model="selectedCategory"
+        label="类别"
+        :items="CATEGORIES"
+      />
       <FilterDropdown v-model="selectedOrderType" label="排序" :items="ORDER_TYPES" />
     </div>
 
