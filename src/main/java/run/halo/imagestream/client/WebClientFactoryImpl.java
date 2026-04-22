@@ -1,5 +1,8 @@
 package run.halo.imagestream.client;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import jakarta.annotation.PostConstruct;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,9 +15,12 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
+import run.halo.app.extension.ConfigMap;
 import run.halo.app.extension.ExtensionClient;
 import run.halo.app.extension.Secret;
+import run.halo.app.infra.utils.JsonUtils;
 import run.halo.app.plugin.PluginConfigUpdatedEvent;
 import run.halo.imagestream.model.BasicProp;
 import run.halo.imagestream.model.PexelsProp;
@@ -28,6 +34,30 @@ public class WebClientFactoryImpl implements WebClientFactory, DisposableBean {
 
     private final ProvidedApiKeysLoader providedApiKeysLoader;
     private final ExtensionClient client;
+
+    static final String CONFIG_MAP_NAME = "image-stream-configmap";
+
+    @PostConstruct
+    void init() {
+        var basicProp = client.fetch(ConfigMap.class, CONFIG_MAP_NAME)
+            .map(ConfigMap::getData)
+            .map(WebClientFactoryImpl::toJsonNodeMap)
+            .map(BasicProp::from)
+            .orElseGet(BasicProp::new);
+        createClients(basicProp);
+    }
+
+    static Map<String, JsonNode> toJsonNodeMap(Map<String, String> data) {
+        var result = new HashMap<String, JsonNode>(data.size());
+        data.forEach((key, value) -> {
+            try {
+                result.put(key, JsonUtils.jsonToObject(value, JsonNode.class));
+            } catch (Exception e) {
+                // ignore invalid json
+            }
+        });
+        return result;
+    }
 
     @Override
     public WebClient getWebClient(WebClientType clientType) {
@@ -88,7 +118,11 @@ public class WebClientFactoryImpl implements WebClientFactory, DisposableBean {
     }
 
     private WebClient createClient(String baseUrl, String authorizationValue) {
+        var strategies = ExchangeStrategies.builder()
+            .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(2 * 1024 * 1024))
+            .build();
         var builder = WebClient.builder().baseUrl(baseUrl)
+            .exchangeStrategies(strategies)
             .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE);
         if (StringUtils.isNotBlank(authorizationValue)) {
             builder.defaultHeader(HttpHeaders.AUTHORIZATION, authorizationValue);
